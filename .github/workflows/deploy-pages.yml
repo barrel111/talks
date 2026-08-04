@@ -26,16 +26,16 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements-pages.txt
+          cache-dependency-path: jl-deerwalk-26/requirements-pages.txt
 
       - name: Install build dependencies
-        run: python -m pip install -r requirements-pages.txt
+        run: python -m pip install -r jl-deerwalk-26/requirements-pages.txt
 
       - name: Validate notebook
-        run: marimo check notebooks/jl_nb.py
+        run: marimo check jl-deerwalk-26/notebooks/jl_nb.py
 
       - name: Export readonly WASM app
-        working-directory: notebooks
+        working-directory: jl-deerwalk-26/notebooks
         env:
           UV_CACHE_DIR: ${{ runner.temp }}/uv-cache
         run: >-
@@ -48,7 +48,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: _site
+          path: jl-deerwalk-26/_site
 
   deploy:
     needs: build

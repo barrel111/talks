@@ -1,7 +1,24 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "marimo>=0.23.16,<0.24",
+#     "matplotlib",
+#     "numpy",
+#     "scipy",
+#     "seaborn",
+# ]
+# [tool.marimo.display]
+# theme = "light"
+# ///
+
 import marimo
 
 __generated_with = "0.23.16"
-app = marimo.App(width="medium")
+app = marimo.App(
+    width="medium",
+    app_title="Randomness and Structure",
+    css_file="talk.css",
+)
 
 
 @app.cell
@@ -13,17 +30,13 @@ def _():
 
 @app.cell
 def _():
-    from pathlib import Path
-
     import matplotlib.pyplot as plt
     import numpy as np
     import seaborn as sns
-    import sklearn
     from matplotlib.ticker import FuncFormatter
     from scipy.stats import chi2
-    from sklearn.decomposition import PCA
 
-    return FuncFormatter, PCA, Path, chi2, np, plt, sns
+    return FuncFormatter, chi2, np, plt, sns
 
 
 @app.cell(hide_code=True)
@@ -59,8 +72,6 @@ def _(mo, show_lecture_notes):
         return content
 
     def visualization_block(content):
-        if _notes_are_visible:
-            return content
         return mo.callout(content, kind="neutral")
 
     return lecture_note, presentation_md, visualization_block
@@ -102,10 +113,9 @@ def _(presentation_md):
 
 
 @app.cell(hide_code=True)
-def _(Path, sns):
+def _(mo, sns):
     RANDOM_SEED = 42
-    PROJECT_ROOT = Path(__file__).resolve().parents[1]
-    MNIST_PATH = PROJECT_ROOT / "data" / "mnist_10k.npz"
+    MNIST_PATH = mo.notebook_location() / "public" / "mnist_10k.npz"
     PLOT_FONT_SIZES = {
         "figure_title": 13,
         "panel_title": 9,
@@ -120,8 +130,11 @@ def _(Path, sns):
         rc={
             "mathtext.fontset": "stix",
             "figure.titlesize": PLOT_FONT_SIZES["figure_title"],
+            "figure.facecolor": "none",
             "axes.titlesize": PLOT_FONT_SIZES["figure_title"],
+            "axes.facecolor": "none",
             "axes.labelsize": PLOT_FONT_SIZES["axis_label"],
+            "savefig.facecolor": "none",
             "xtick.labelsize": PLOT_FONT_SIZES["detail"],
             "ytick.labelsize": PLOT_FONT_SIZES["detail"],
             "legend.fontsize": PLOT_FONT_SIZES["detail"],
@@ -131,36 +144,54 @@ def _(Path, sns):
 
 
 @app.cell(hide_code=True)
-def _(MNIST_PATH, np):
-    if not MNIST_PATH.exists():
-        raise FileNotFoundError(
-            f"Missing {MNIST_PATH}. Run `python scripts/prepare_mnist.py` "
-            "from the project root first."
-        )
+async def _(MNIST_PATH, np):
+    _path_text = str(MNIST_PATH)
+    if _path_text.startswith(("http://", "https://")):
+        from io import BytesIO as _BytesIO
+        from pyodide.http import pyfetch as _pyfetch
 
-    with np.load(MNIST_PATH) as _mnist:
+        _response = await _pyfetch(_path_text)
+        if not _response.ok:
+            raise FileNotFoundError(
+                f"Could not fetch browser data from {_path_text}: "
+                f"HTTP {_response.status}"
+            )
+        _mnist_source = _BytesIO(await _response.bytes())
+    else:
+        if not MNIST_PATH.exists():
+            raise FileNotFoundError(
+                f"Missing {MNIST_PATH}. Run "
+                "`python scripts/prepare_wasm_assets.py` from the project "
+                "root first."
+            )
+        _mnist_source = MNIST_PATH
+
+    with np.load(_mnist_source) as _mnist:
         X_uint8 = _mnist["images"]
         y = _mnist["labels"]
+        pca_coordinates = _mnist["pca_coordinates"]
+        pca_components = _mnist["pca_components"]
+        pca_explained_variance = _mnist["pca_explained_variance"]
+        pca_mean = _mnist["pca_mean"]
+        total_variance = float(_mnist["total_variance"])
 
     X = X_uint8.astype(np.float32) / 255.0
 
     assert X.shape == (10_000, 784)
     assert y.shape == (10_000,)
+    assert pca_coordinates.shape == (10_000, 400)
+    assert pca_components.shape == (400, 784)
     assert np.array_equal(np.unique(y), np.arange(10, dtype=np.uint8))
-    return X, X_uint8, y
-
-
-@app.cell(hide_code=True)
-def _():
-    # lecture_note(f"""
-    # #### Setup check
-    # - **Dataset:** `{MNIST_PATH.name}` loaded locally
-    # - **Examples:** {X.shape[0]:,}
-    # - **Original dimension:** {X.shape[1]}
-    # - **Classes:** {len(set(y.tolist()))}
-    # - **scikit-learn:** {sklearn.__version__}
-    # """)
-    return
+    return (
+        X,
+        X_uint8,
+        pca_components,
+        pca_coordinates,
+        pca_explained_variance,
+        pca_mean,
+        total_variance,
+        y,
+    )
 
 
 @app.cell(hide_code=True)
@@ -717,27 +748,6 @@ def _(mo):
         gap=1,
     )
     return comparison_controls, comparison_dimension, gaussian_refresh
-
-
-@app.cell(hide_code=True)
-def _(PCA, RANDOM_SEED, X, np):
-    _pca = PCA(
-        n_components=400,
-        svd_solver="randomized",
-        random_state=RANDOM_SEED,
-    )
-    pca_coordinates = _pca.fit_transform(X)
-    pca_components = _pca.components_
-    pca_explained_variance = _pca.explained_variance_
-    pca_mean = _pca.mean_
-    total_variance = np.var(X, axis=0, ddof=1).sum()
-    return (
-        pca_components,
-        pca_coordinates,
-        pca_explained_variance,
-        pca_mean,
-        total_variance,
-    )
 
 
 @app.cell(hide_code=True)

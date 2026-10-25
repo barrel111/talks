@@ -1,61 +1,72 @@
 # GitHub Pages deployment
 
-This project exports the talk as a readonly Marimo WebAssembly application.
-Python runs entirely in the visitor's browser; GitHub Pages only serves static
-files.
+This repository is published as the GitHub Pages project site
+`https://barrel111.github.io/talks/`. The Deerwalk talk is exported into the
+`deerwalk-26/` subdirectory and is therefore available at:
 
-## Files to migrate
+```text
+https://barrel111.github.io/talks/deerwalk-26/
+```
 
-Copy these paths into the root of the destination GitHub Pages repository while
-preserving their relative locations:
+The source remains in `jl-deerwalk-26/`; the source directory name does not
+determine the public URL.
 
-- `.github/workflows/deploy-pages.yml`
-- `notebooks/jl_nb.py`
-- `notebooks/talk.css`
-- `notebooks/__marimo__/session/jl_nb.py.json`
-- `notebooks/public/mnist_10k.npz`
-- `requirements-pages.txt`
+## Repository layout
 
-The `scripts/prepare_wasm_assets.py` script and source `data/mnist_10k.npz` are
-only needed if the browser bundle must be regenerated.
+```text
+talks/
+├── .github/workflows/deploy-pages.yml
+└── jl-deerwalk-26/
+    ├── notebooks/
+    │   ├── jl_nb.py
+    │   ├── talk.css
+    │   └── public/mnist_10k.npz
+    └── requirements-pages.txt
+```
+
+The workflow creates this deployment artifact:
+
+```text
+_site/
+├── .nojekyll
+└── deerwalk-26/
+    ├── index.html
+    └── assets/
+```
 
 ## Enable deployment
 
-1. Push the migrated files to the destination repository's `main` branch.
-2. Open **Settings → Pages** in that repository.
-3. Under **Build and deployment**, choose **GitHub Actions** as the source.
-4. Open **Actions → Deploy Marimo WASM app to GitHub Pages** and run the
-   workflow if the initial push did not start it automatically.
-5. The deployment job reports the published URL. For a project repository it is
-   normally `https://<username>.github.io/<repository>/`.
-
-The workflow validates the notebook, exports it with `marimo export html-wasm`,
-uploads `_site` as the Pages artifact, and deploys it. Marimo creates the root
-`index.html` and `.nojekyll` file automatically.
+1. Commit and push the repository to the `main` branch.
+2. In `barrel111/talks`, open **Settings → Pages**.
+3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+4. Open **Actions → Deploy Marimo WASM app to GitHub Pages** and inspect the
+   run triggered by the push. If needed, start it with **Run workflow**.
+5. After the deploy job succeeds, visit
+   `https://barrel111.github.io/talks/deerwalk-26/`.
 
 ## Local verification
 
-From the project root:
+Run these commands from the repository root (`talks/`):
 
 ```bash
-python -m pip install -r requirements-pages.txt
-cd notebooks
+python -m pip install -r jl-deerwalk-26/requirements-pages.txt
+marimo check jl-deerwalk-26/notebooks/jl_nb.py
 
+cd jl-deerwalk-26/notebooks
 UV_CACHE_DIR=/tmp/jl-deerwalk-uv-cache \
-UV_TOOL_DIR=/tmp/jl-deerwalk-uv-tools \
-UV_TOOL_BIN_DIR=/tmp/jl-deerwalk-uv-bin \
-marimo export html-wasm jl_nb.py -o ../_site --mode run --force
+  marimo export html-wasm jl_nb.py \
+  -o ../../_site/deerwalk-26 --mode run --force
 
-python -m http.server --directory ../_site 8000
+cd ../..
+touch _site/.nojekyll
+python -m http.server --directory _site 8000
 ```
 
-Then visit `http://localhost:8000`. A WASM export must be served over HTTP; it
-does not run correctly when `index.html` is opened directly from disk.
+Then visit `http://localhost:8000/deerwalk-26/`. The WASM export must be
+served over HTTP; opening `index.html` directly from disk is insufficient.
 
-## Existing Pages sites
+## Adding another talk
 
-This workflow deploys `_site` as the entire Pages artifact. If the destination
-repository already hosts other pages, integrate `_site` into that repository's
-existing build rather than enabling this workflow unchanged. The generated app
-uses relative asset URLs and can be placed in a subdirectory such as
-`jl-deerwalk/`.
+Export each additional talk into another directory beneath `_site/`, such as
+`_site/another-talk/`, before the artifact-upload step. Every directory will
+become another URL under `https://barrel111.github.io/talks/`.

@@ -40,7 +40,10 @@ jobs:
           UV_CACHE_DIR: ${{ runner.temp }}/uv-cache
         run: >-
           marimo export html-wasm jl_nb.py
-          -o ../_site --mode run --force
+          -o ../../_site/deerwalk-26 --mode run --force
+
+      - name: Disable Jekyll processing
+        run: touch _site/.nojekyll
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -48,7 +51,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: jl-deerwalk-26/_site
+          path: _site
 
   deploy:
     needs: build
